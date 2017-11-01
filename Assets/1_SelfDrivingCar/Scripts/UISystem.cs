@@ -18,6 +18,7 @@ public class UISystem : MonoSingleton<UISystem> {
     public GameObject RecordingPause; 
 	public GameObject RecordDisabled;
 	public bool isTraining = false;
+    public bool isAuto = false;
 
     private bool recording;
     private float topSpeed;
@@ -110,7 +111,14 @@ public class UISystem : MonoSingleton<UISystem> {
 
 		if (!isTraining) 
 		{
-			if ((Input.GetKey(KeyCode.W)) || (Input.GetKey(KeyCode.S))) 
+            if ((Input.GetKey(KeyCode.Alpha1)))
+            {
+                isAuto = !isAuto;
+                carController.IsAuto = isAuto;
+            }
+            
+			//if ((Input.GetKey(KeyCode.W)) || (Input.GetKey(KeyCode.S))) 
+            if (!isAuto)
 			{
 				DriveStatus_Text.color = Color.red;
 				DriveStatus_Text.text = "Mode: Manual";

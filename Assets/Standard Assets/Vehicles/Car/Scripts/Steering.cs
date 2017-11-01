@@ -39,7 +39,9 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             else
             {
-                V = CrossPlatformInputManager.GetAxis("Vertical");
+                float acc = CrossPlatformInputManager.GetAxis("Vertical") * 1000.0f;
+                V = acc;
+                //V = CrossPlatformInputManager.GetAxis("Vertical");
             }
 
 			if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) 

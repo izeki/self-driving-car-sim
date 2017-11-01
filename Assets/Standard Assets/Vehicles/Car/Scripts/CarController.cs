@@ -51,6 +51,10 @@ namespace UnityStandardAssets.Vehicles.Car
         [SerializeField] private Camera CenterCamera;
         [SerializeField] private Camera LeftCamera;
         [SerializeField] private Camera RightCamera;
+        
+        //initial state
+        private Vector3 init_position;
+		private Quaternion init_rotation;         
 
         private Quaternion[] m_WheelMeshLocalRotations;
         private Vector3 m_Prevpos, m_Pos;
@@ -71,7 +75,29 @@ namespace UnityStandardAssets.Vehicles.Car
         public bool Skidding { get; private set; }
 
         public float BrakeInput { get; private set; }
-
+        
+        private bool m_isAuto = false;
+        public bool IsAuto {
+            get
+            {
+                return m_isAuto;
+            }
+            
+            set
+            {
+                m_isAuto = value;
+                if (value == true) 
+                {
+                    Debug.Log("Entering autonomous mode");
+                } 
+                else
+                {
+                    Debug.Log("Entering manual mode");
+                }
+            }
+        }
+        
+        
         private bool m_isRecording = false;
         public bool IsRecording {
             get
@@ -105,6 +131,30 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
         }
+        
+        private bool m_isOffRoad = false;
+        
+        public bool IsOffRoad {
+            get
+            {
+                return m_isOffRoad;
+            }
+
+            set
+            {
+                m_isOffRoad = value;
+                if(value == true)
+                { 
+					Debug.Log("Offroad!! Reset vehicle position...");                    
+                    // reset to initial state
+                    transform.position = init_position;
+                    transform.rotation = init_rotation;
+                    m_Rigidbody.velocity = new Vector3(0f,-10f,0f);
+                    Move(0f, 0f, 0f, 0f);
+                } 				
+            }
+
+        }
 
 
 		public bool checkSaveLocation()
@@ -128,6 +178,8 @@ namespace UnityStandardAssets.Vehicles.Car
         public float CurrentSpeed{ get { return m_Rigidbody.velocity.magnitude * 2.23693629f; } }
 
         public float MaxSpeed{ get { return m_Topspeed; } }
+        
+        public float BrakeTorque{ get { return m_BrakeTorque; } }
 
         public float Revs { get; private set; }
 
@@ -146,6 +198,10 @@ namespace UnityStandardAssets.Vehicles.Car
 
             m_Rigidbody = GetComponent<Rigidbody> ();
             m_CurrentTorque = m_FullTorqueOverAllWheels - (m_TractionControl * m_FullTorqueOverAllWheels);
+            
+            // save initial state
+            init_position = transform.position;
+            init_rotation = transform.rotation;
         }
 
         private void GearChanging ()
@@ -216,12 +272,14 @@ namespace UnityStandardAssets.Vehicles.Car
                 m_WheelMeshes [i].transform.position = position;
                 m_WheelMeshes [i].transform.rotation = quat;
             }
-
+            
+            
             //clamp input values
-            steering = Mathf.Clamp (steering, -1, 1);
-            AccelInput = accel = Mathf.Clamp (accel, 0, 1);
-            BrakeInput = footbrake = -1 * Mathf.Clamp (footbrake, -1, 0);
+            steering = Mathf.Clamp (steering, -1, 1);            
+            AccelInput = accel = Mathf.Clamp (accel, 0, 1000) / 1000;            
+            BrakeInput = footbrake = -1 * Mathf.Clamp (footbrake, -1000, 0) / 1000;
             handbrake = Mathf.Clamp (handbrake, 0, 1);
+            
 
             //Set the steer on the front wheels.
             //Assuming that wheels 0 and 1 are the front wheels.
@@ -297,12 +355,15 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
             for (int i = 0; i < 4; i++) {
+                //m_WheelColliders [i].brakeTorque = BrakeTorque * footbrake;
+                
                 if (CurrentSpeed > 5 && Vector3.Angle (transform.forward, m_Rigidbody.velocity) < 50f) {
                     m_WheelColliders [i].brakeTorque = m_BrakeTorque * footbrake;
                 } else if (footbrake > 0) {
                     m_WheelColliders [i].brakeTorque = 0f;
                     m_WheelColliders [i].motorTorque = -m_ReverseTorque * footbrake;
                 }
+                
             }
         }
 
@@ -422,10 +483,11 @@ namespace UnityStandardAssets.Vehicles.Car
 
 				// Capture and Persist Image
 				string centerPath = WriteImage (CenterCamera, "center", sample.timeStamp);
-				string leftPath = WriteImage (LeftCamera, "left", sample.timeStamp);
-				string rightPath = WriteImage (RightCamera, "right", sample.timeStamp);
+				//string leftPath = WriteImage (LeftCamera, "left", sample.timeStamp);
+				//string rightPath = WriteImage (RightCamera, "right", sample.timeStamp);
 
-				string row = string.Format ("{0},{1},{2},{3},{4},{5},{6}\n", centerPath, leftPath, rightPath, sample.steeringAngle, sample.throttle, sample.brake, sample.speed);
+				//string row = string.Format ("{0},{1},{2},{3},{4},{5},{6},{7}\n", centerPath, leftPath, rightPath, sample.steeringAngle, sample.throttle, sample.brake, sample.speed, sample.motor);
+                string row = string.Format ("{0},{1},{2},{3},{4},{5}\n", centerPath, sample.steeringAngle, sample.throttle, sample.brake, sample.speed, sample.motor);
 				File.AppendAllText (Path.Combine (m_saveLocation, CSVFileName), row);
 			}
 			if (carSamples.Count > 0) {
@@ -470,6 +532,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
                 sample.timeStamp = System.DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
                 sample.steeringAngle = m_SteerAngle / m_MaximumSteerAngle;
+                sample.motor = AccelInput==0?-1*BrakeInput:AccelInput;
                 sample.throttle = AccelInput;
                 sample.brake = BrakeInput;
                 sample.speed = CurrentSpeed;
@@ -520,6 +583,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public Quaternion rotation;
         public Vector3 position;
         public float steeringAngle;
+        public float motor;
         public float throttle;
         public float brake;
         public float speed;

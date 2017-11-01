@@ -19,6 +19,7 @@ public class CommandServer : MonoBehaviour
 		_socket = GameObject.Find("SocketIO").GetComponent<SocketIOComponent>();
 		_socket.On("open", OnOpen);
 		_socket.On("steer", OnSteer);
+        _socket.On("offRoad", OnOffRoad);
 		_socket.On("manual", onManual);
 		_carController = CarRemoteControl.GetComponent<CarController>();
 	}
@@ -48,16 +49,28 @@ public class CommandServer : MonoBehaviour
 		CarRemoteControl.Acceleration = float.Parse(jsonObject.GetField("throttle").str);
 		EmitTelemetry(obj);
 	}
+    
+    void OnOffRoad(SocketIOEvent obj)
+    {
+        CarRemoteControl.IsOffRoad = false;
+        CarRemoteControl.SteeringAngle = 0.0f;
+		CarRemoteControl.Acceleration = 0.0f;
+        EmitTelemetry(obj);
+    }
 
 	void EmitTelemetry(SocketIOEvent obj)
 	{
 		UnityMainThreadDispatcher.Instance().Enqueue(() =>
 		{
-			print("Attempting to Send...");
+			//print("Attempting to Send...");
 			// send only if it's not being manually driven
-			if ((Input.GetKey(KeyCode.W)) || (Input.GetKey(KeyCode.S))) {
+			//if ((Input.GetKey(KeyCode.W)) || (Input.GetKey(KeyCode.S))) {
+            if (! _carController.IsAuto) {
 				_socket.Emit("telemetry", new JSONObject());
 			}
+            else if (_carController.IsOffRoad) {
+                _socket.Emit("offRoad", new JSONObject());
+            }
 			else {
 				// Collect Data from the Car
 				Dictionary<string, string> data = new Dictionary<string, string>();
