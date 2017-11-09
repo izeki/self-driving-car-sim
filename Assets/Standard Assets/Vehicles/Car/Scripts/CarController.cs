@@ -43,18 +43,46 @@ namespace UnityStandardAssets.Vehicles.Car
         [SerializeField] private static int NoOfGears = 5;
         [SerializeField] private float m_RevRangeBoundary = 1f;
         [SerializeField] private float m_SlipLimit;
-        [SerializeField] private float m_BrakeTorque;
+        [SerializeField] private float m_BrakeTorque;        
+        
+        // Track information
+        [SerializeField] private GameObject[] m_TracksMeshes = new GameObject[78];
+        public GameObject[] TrackMeshes {
+            get 
+            {
+                return m_TracksMeshes;
+            }
+        }
 
         public const string CSVFileName = "driving_log.csv";
-        public const string DirFrames = "IMG";
+        public const string DirFrames = "IMG";                
 
         [SerializeField] private Camera CenterCamera;
         [SerializeField] private Camera LeftCamera;
         [SerializeField] private Camera RightCamera;
         
+        [Header("Sensors")] 
+        public float sensorLength = 100f;        
+        public Vector3 lidarPos = new Vector3(0, 2.5f, 0); 
+        public float vfov = -31.5f;
+        public int numOfLaser = 64;
+        private float rotateAngle = 0f;
+        
+        
         //initial state
         private Vector3 init_position;
-		private Quaternion init_rotation;         
+		private Quaternion init_rotation;
+        private int m_currentTrack = 0;
+        public int CurrentTrack {
+            get
+            {
+                return m_currentTrack;
+            }
+            set 
+            {
+                m_currentTrack = value;
+            }
+        }
 
         private Quaternion[] m_WheelMeshLocalRotations;
         private Vector3 m_Prevpos, m_Pos;
@@ -69,6 +97,7 @@ namespace UnityStandardAssets.Vehicles.Car
         private Queue<CarSample> carSamples;
 		private int TotalSamples;
 		private bool isSaving;
+        
 		private Vector3 saved_position;
 		private Quaternion saved_rotation;
 
@@ -86,6 +115,7 @@ namespace UnityStandardAssets.Vehicles.Car
             set
             {
                 m_isAuto = value;
+                /*
                 if (value == true) 
                 {
                     Debug.Log("Entering autonomous mode");
@@ -93,6 +123,28 @@ namespace UnityStandardAssets.Vehicles.Car
                 else
                 {
                     Debug.Log("Entering manual mode");
+                }
+                */
+            }
+        }
+        
+        private bool m_isReverse = false;
+        public bool IsReverse {
+            get
+            {
+                return m_isReverse;
+            }
+            
+            set
+            {
+                m_isReverse = value;
+                if (value == true) 
+                {
+                    //Debug.Log("Entering reverse gear");
+                } 
+                else
+                {
+                    //Debug.Log("Entering drive gear");
                 }
             }
         }
@@ -254,9 +306,51 @@ namespace UnityStandardAssets.Vehicles.Car
             var revsRangeMax = ULerp (m_RevRangeBoundary, 1f, gearNumFactor);
             Revs = ULerp (revsRangeMin, revsRangeMax, m_GearFactor);
         }
+        
+        //simulate LiDAR behavior 600RPM
+        private void sensors() {
+            RaycastHit hit;            
+            
+            
+            Vector3 sensorStartPos = transform.position;
+            Vector3 direction = Quaternion.Euler(transform.rotation.eulerAngles.x, 
+                                                 transform.rotation.eulerAngles.y, 
+                                                 transform.rotation.eulerAngles.z) * lidarPos;
+            //rotateAngle = 90;            
+            //Debug.Log("rotateAngle: " + rotateAngle);
+            float verticalAngle = 0;            
+            
+            sensorStartPos += direction; 
+            for (int i=0; i<20; i++) {
+                for (int j =0; j<numOfLaser; j++) {
+                    verticalAngle = -j * vfov / numOfLaser;
+                    //Debug.Log("verticalAngle: " + verticalAngle);
+                    Vector3 ray_direction = Quaternion.AngleAxis(rotateAngle, transform.up)
+                                           * Quaternion.AngleAxis(verticalAngle, transform.right) 
+                                           * transform.forward;
+                    if (Physics.Raycast(sensorStartPos, ray_direction, out hit, sensorLength)) {
+                        Debug.DrawLine(sensorStartPos, hit.point);
+                        if (hit.collider.tag == "Wall") {
+                            //Debug.Log("Hit: "+ hit.collider.name);
+                            //Debug.Log("Hit: "+ hit.distance);
+                            
+                        }
+                        //Debug.DrawRay(sensorStartPos, ray_direction * sensorLength); 
+                    }  
+
+                }
+                // the update processes at 50Hz
+                rotateAngle +=  3.6f;
+            }            
+        }
+        
+        
 
         public void Update()
         {
+            sensors();
+        
+        
             if (IsRecording)
             {
                 //Dump();
@@ -357,13 +451,22 @@ namespace UnityStandardAssets.Vehicles.Car
             for (int i = 0; i < 4; i++) {
                 //m_WheelColliders [i].brakeTorque = BrakeTorque * footbrake;
                 
+                //if (Vector3.Angle (transform.forward, m_Rigidbody.velocity) < 50f) 
+                m_WheelColliders [i].brakeTorque = m_BrakeTorque * footbrake;
+                //Debug.Log("m_isReverse: " + m_isReverse);
+                if (m_isReverse)
+                    m_WheelColliders [i].motorTorque = -m_ReverseTorque * accel;
+                    
+                
+                
+                /*
                 if (CurrentSpeed > 5 && Vector3.Angle (transform.forward, m_Rigidbody.velocity) < 50f) {
                     m_WheelColliders [i].brakeTorque = m_BrakeTorque * footbrake;
                 } else if (footbrake > 0) {
                     m_WheelColliders [i].brakeTorque = 0f;
                     m_WheelColliders [i].motorTorque = -m_ReverseTorque * footbrake;
                 }
-                
+                */
             }
         }
 

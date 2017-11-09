@@ -21,6 +21,7 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             s.UpdateValues();
             m_Car.Move(s.H, s.V, s.V, 0f);
+            m_Car.IsReverse = s.Reversing;
 
         }
     }

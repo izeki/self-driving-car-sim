@@ -15,6 +15,7 @@ public class UISystem : MonoSingleton<UISystem> {
     public Text RecordStatus_Text;
 	public Text DriveStatus_Text;
 	public Text SaveStatus_Text;
+    public Text Gear_Text;
     public GameObject RecordingPause; 
 	public GameObject RecordDisabled;
 	public bool isTraining = false;
@@ -34,6 +35,7 @@ public class UISystem : MonoSingleton<UISystem> {
 		RecordStatus_Text.text = "RECORD";
 		DriveStatus_Text.text = "";
 		SaveStatus_Text.text = "";
+        SetGearValue(false);
 		SetAngleValue(0);
         SetMPHValue(0);
 		if (!isTraining) {
@@ -55,6 +57,15 @@ public class UISystem : MonoSingleton<UISystem> {
         MPH_Animation.fillAmount = value/topSpeed;
     }
 
+    public void SetGearValue(bool isReverse) 
+    {
+        if (isReverse) {
+            Gear_Text.text = "R gear";
+        } else {
+            Gear_Text.text = "D gear";
+        }
+    }
+    
     public void ToggleRecording()
     {
 		// Don't record in autonomous mode
@@ -83,6 +94,7 @@ public class UISystem : MonoSingleton<UISystem> {
     {
         SetMPHValue(carController.CurrentSpeed);
         SetAngleValue(carController.CurrentSteerAngle);
+        SetGearValue(carController.IsReverse);
     }
 
 	// Update is called once per frame

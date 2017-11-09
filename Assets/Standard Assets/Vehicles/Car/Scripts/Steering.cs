@@ -12,6 +12,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public float H { get; private set; }
         public float V { get; private set; }
         public bool Cruising { get; private set; } // cruise control
+        public bool Reversing { get; private set; }
 		public bool mouse_hold;
 		public float mouse_start;
 
@@ -21,6 +22,7 @@ namespace UnityStandardAssets.Vehicles.Car
             H = 0f;
             V = 0f;
             Cruising = false;
+            Reversing = false;
 			mouse_hold = false;
         }
 
@@ -28,6 +30,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public void UpdateValues()
         {
             // Cruise Control
+            /*
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 Cruising = !Cruising;
@@ -42,6 +45,15 @@ namespace UnityStandardAssets.Vehicles.Car
                 float acc = CrossPlatformInputManager.GetAxis("Vertical") * 1000.0f;
                 V = acc;
                 //V = CrossPlatformInputManager.GetAxis("Vertical");
+            }
+            */
+            float acc = CrossPlatformInputManager.GetAxis("Vertical") * 1000.0f;
+            V = acc;
+            
+            // Reversing
+            if (Input.GetKey(KeyCode.Space))
+            {
+                Reversing = !Reversing;
             }
 
 			if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) 

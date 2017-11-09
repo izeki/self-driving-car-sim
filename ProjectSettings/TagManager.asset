@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 2
   tags:
   - Waypoint
+  - Track
+  - Background
+  - Wall
   layers:
   - Default
   - TransparentFX

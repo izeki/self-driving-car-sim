@@ -44,6 +44,7 @@ namespace UnityStandardAssets.Vehicles.Car
             {
                 s.UpdateValues();
                 m_Car.Move(s.H, s.V, s.V, 0f);
+                m_Car.IsReverse = s.Reversing;
             } else
             {
 				m_Car.Move(SteeringAngle, Acceleration, Acceleration, 0f);
