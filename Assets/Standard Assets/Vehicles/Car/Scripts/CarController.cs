@@ -83,6 +83,10 @@ namespace UnityStandardAssets.Vehicles.Car
                 m_currentTrack = value;
             }
         }
+        
+        //sample data
+        private bool isFirstSample = true;
+        private CarSample sample;
 
         private Quaternion[] m_WheelMeshLocalRotations;
         private Vector3 m_Prevpos, m_Pos;
@@ -170,6 +174,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     Debug.Log("Stopping record");
                     StopCoroutine(Sample());
+                    isFirstSample = true;
                     Debug.Log("Writing to disk");
 					//save the cars coordinate parameters so we can reset it to this properly after capturing data
 					saved_position = transform.position;
@@ -227,6 +232,11 @@ namespace UnityStandardAssets.Vehicles.Car
             set { m_SteerAngle = value; }
         }
 
+
+        public float CurrentPitch{ get { return transform.rotation.eulerAngles.z; }}
+        
+        public float CurrentYaw{get { return transform.rotation.eulerAngles.y; } }
+
         public float CurrentSpeed{ get { return m_Rigidbody.velocity.magnitude * 2.23693629f; } }
 
         public float MaxSpeed{ get { return m_Topspeed; } }
@@ -252,8 +262,10 @@ namespace UnityStandardAssets.Vehicles.Car
             m_CurrentTorque = m_FullTorqueOverAllWheels - (m_TractionControl * m_FullTorqueOverAllWheels);
             
             // save initial state
+            isFirstSample = true;
             init_position = transform.position;
-            init_rotation = transform.rotation;
+            init_rotation = transform.rotation;    
+            
         }
 
         private void GearChanging ()
@@ -307,10 +319,16 @@ namespace UnityStandardAssets.Vehicles.Car
             Revs = ULerp (revsRangeMin, revsRangeMax, m_GearFactor);
         }
         
+        public void FixedUpdate() {            
+            //sensors();
+            
+        }
+        
         //simulate LiDAR behavior 600RPM
         private void sensors() {
             RaycastHit hit;            
             
+            //print(Time.time);
             
             Vector3 sensorStartPos = transform.position;
             Vector3 direction = Quaternion.Euler(transform.rotation.eulerAngles.x, 
@@ -318,13 +336,16 @@ namespace UnityStandardAssets.Vehicles.Car
                                                  transform.rotation.eulerAngles.z) * lidarPos;
             //rotateAngle = 90;            
             //Debug.Log("rotateAngle: " + rotateAngle);
-            float verticalAngle = 0;            
+            float verticalAngle = 0; 
             
+            int round = (int) (18000*Time.fixedDeltaTime);
+            //print("round:" + round);
             sensorStartPos += direction; 
-            for (int i=0; i<20; i++) {
+            for (int i=0; i<round; i++) {
                 for (int j =0; j<numOfLaser; j++) {
                     verticalAngle = -j * vfov / numOfLaser;
                     //Debug.Log("verticalAngle: " + verticalAngle);
+                    //Debug.Log("rotateAngle: " + rotateAngle);
                     Vector3 ray_direction = Quaternion.AngleAxis(rotateAngle, transform.up)
                                            * Quaternion.AngleAxis(verticalAngle, transform.right) 
                                            * transform.forward;
@@ -339,18 +360,15 @@ namespace UnityStandardAssets.Vehicles.Car
                     }  
 
                 }
-                // the update processes at 50Hz
-                rotateAngle +=  3.6f;
+                // the update processes at 100Hz
+                rotateAngle += 0.2f;//3.6f;
             }            
         }
         
-        
 
         public void Update()
-        {
+        {    
             sensors();
-        
-        
             if (IsRecording)
             {
                 //Dump();
@@ -590,7 +608,10 @@ namespace UnityStandardAssets.Vehicles.Car
 				//string rightPath = WriteImage (RightCamera, "right", sample.timeStamp);
 
 				//string row = string.Format ("{0},{1},{2},{3},{4},{5},{6},{7}\n", centerPath, leftPath, rightPath, sample.steeringAngle, sample.throttle, sample.brake, sample.speed, sample.motor);
-                string row = string.Format ("{0},{1},{2},{3},{4},{5}\n", centerPath, sample.steeringAngle, sample.throttle, sample.brake, sample.speed, sample.motor);
+                string row = string.Format ("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}\n", 
+                                            centerPath, sample.steeringAngle, sample.throttle, sample.brake, 
+                                            sample.speed, sample.pitch, sample.yaw, 
+                                            sample.next_speed, sample.next_pitch, sample.next_yaw, sample.motor);
 				File.AppendAllText (Path.Combine (m_saveLocation, CSVFileName), row);
 			}
 			if (carSamples.Count > 0) {
@@ -627,25 +648,44 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             // Start the Coroutine to Capture Data Every Second.
             // Persist that Information to a CSV and Perist the Camera Frame
-            yield return new WaitForSeconds(0.0666666666666667f);
+            yield return new WaitForSeconds(0.02f); //50Hz
 
             if (m_saveLocation != "")
             {
-                CarSample sample = new CarSample();
-
-                sample.timeStamp = System.DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
-                sample.steeringAngle = m_SteerAngle / m_MaximumSteerAngle;
-                sample.motor = AccelInput==0?-1*BrakeInput:AccelInput;
-                sample.throttle = AccelInput;
-                sample.brake = BrakeInput;
-                sample.speed = CurrentSpeed;
-                sample.position = transform.position;
-                sample.rotation = transform.rotation;
-
-                carSamples.Enqueue(sample);
-
-                sample = null;
-                //may or may not be needed
+            
+                if (isFirstSample) {
+                    isFirstSample = !isFirstSample;
+                    sample = new CarSample();
+                    sample.timeStamp = System.DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
+                    //Debug.Log("sample.timeStamp:"+sample.timeStamp);
+                    sample.steeringAngle = m_SteerAngle / m_MaximumSteerAngle;
+                    sample.motor = AccelInput==0?-1*BrakeInput:AccelInput;
+                    sample.throttle = AccelInput;
+                    sample.brake = BrakeInput;
+                    sample.speed = CurrentSpeed;
+                    sample.pitch = transform.rotation.eulerAngles.z;
+                    sample.yaw = transform.rotation.eulerAngles.y;
+                    sample.position = transform.position;
+                    sample.rotation = transform.rotation;
+                } else {
+                    sample.next_speed = CurrentSpeed;
+                    sample.next_pitch = transform.rotation.eulerAngles.z;
+                    sample.next_yaw = transform.rotation.eulerAngles.y;
+                    carSamples.Enqueue(sample);
+                    // new sample
+                    sample = new CarSample();
+                    sample.timeStamp = System.DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
+                    //Debug.Log("sample.timeStamp:"+sample.timeStamp);
+                    sample.steeringAngle = m_SteerAngle / m_MaximumSteerAngle;
+                    sample.motor = AccelInput==0?-1*BrakeInput:AccelInput;
+                    sample.throttle = AccelInput;
+                    sample.brake = BrakeInput;
+                    sample.speed = CurrentSpeed;
+                    sample.pitch = transform.rotation.eulerAngles.z;
+                    sample.yaw = transform.rotation.eulerAngles.y;
+                    sample.position = transform.position;
+                    sample.rotation = transform.rotation;                    
+                }                
             }
 
             // Only reschedule if the button hasn't toggled
@@ -690,6 +730,11 @@ namespace UnityStandardAssets.Vehicles.Car
         public float throttle;
         public float brake;
         public float speed;
+        public float pitch;
+        public float yaw;
+        public float next_speed;
+        public float next_pitch;
+        public float next_yaw;
         public string timeStamp;
     }
 
