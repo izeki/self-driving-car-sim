@@ -6,7 +6,7 @@ using UnityStandardAssets.Vehicles.Car;
 using System;
 using System.Security.AccessControl;
 
-public class CommandServer : MonoBehaviour
+public class CommandServer_test : MonoBehaviour
 {
 	public CarRemoteControl CarRemoteControl;
 	public Camera FrontFacingCamera;
